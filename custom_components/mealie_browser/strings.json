@@ -1,0 +1,69 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mealie Browser",
+        "description": "Mealie Browser reuses the connection of the Mealie integration: choose the Mealie server to browse.",
+        "data": {
+          "mealie_entry_id": "Mealie server"
+        }
+      }
+    },
+    "abort": {
+      "mealie_not_configured": "Set up the Mealie integration first: Mealie Browser reuses its connection.",
+      "single_instance_allowed": "Mealie Browser is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Open recipe by voice",
+        "description": "Defaults used by the open_recipe_by_voice action when the call does not provide them.",
+        "data": {
+          "browser_id": "browser_mod browser ID",
+          "dashboard_path": "Path of the dashboard view showing the card",
+          "resend_delay": "Send the recipe again after"
+        },
+        "data_description": {
+          "browser_id": "Browser to steer to the recipes view (needs browser_mod). Leave empty to show the recipe on every open card without navigating.",
+          "dashboard_path": "For example /dashboard-kitchen/recipes. Only used with a browser ID.",
+          "resend_delay": "0 to disable. Useful for a tablet whose web view reloads a few seconds after waking up."
+        }
+      }
+    }
+  },
+  "services": {
+    "open_recipe_by_voice": {
+      "name": "Open recipe by voice",
+      "description": "Finds the Mealie recipe matching a spoken phrase (recipe extras first, then the recipe name) and shows it on the Mealie Browser card. Shows a search for the phrase when no recipe matches.",
+      "fields": {
+        "text": {
+          "name": "Text",
+          "description": "Phrase to match, for example what was said to a voice assistant."
+        },
+        "browser_id": {
+          "name": "Browser ID",
+          "description": "browser_mod ID of the browser that should show the recipe. Defaults to the integration options."
+        },
+        "dashboard_path": {
+          "name": "Dashboard path",
+          "description": "View holding the card, opened on that browser first. Defaults to the integration options."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "Mealie Browser is not set up."
+    },
+    "mealie_entry_missing": {
+      "message": "The Mealie integration entry used by Mealie Browser no longer exists. Remove and add Mealie Browser again."
+    }
+  },
+  "issues": {
+    "deprecated_yaml": {
+      "title": "Mealie Browser YAML configuration is deprecated",
+      "description": "Mealie Browser is now set up from the UI and your configuration has been imported. Remove `mealie_browser:` from configuration.yaml and restart Home Assistant."
+    }
+  }
+}

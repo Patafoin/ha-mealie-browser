@@ -1,0 +1,38 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, what you got.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Mealie Browser version
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: 2026.9.2
+    validations:
+      required: true
+  - type: input
+    id: mealie_version
+    attributes:
+      label: Mealie version
+      placeholder: v3.2.0
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >-
+        Home Assistant logs mentioning mealie_browser (Settings → System → Logs),
+        and the browser console if the card is involved.
+      render: text

@@ -1,0 +1,69 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mealie Browser",
+        "description": "Mealie Browser réutilise la connexion de l'intégration Mealie : choisissez le serveur Mealie à parcourir.",
+        "data": {
+          "mealie_entry_id": "Serveur Mealie"
+        }
+      }
+    },
+    "abort": {
+      "mealie_not_configured": "Configurez d'abord l'intégration Mealie : Mealie Browser réutilise sa connexion.",
+      "single_instance_allowed": "Mealie Browser est déjà configuré."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ouverture de recette à la voix",
+        "description": "Valeurs utilisées par l'action open_recipe_by_voice quand l'appel ne les fournit pas.",
+        "data": {
+          "browser_id": "ID de navigateur browser_mod",
+          "dashboard_path": "Chemin de la vue qui contient la carte",
+          "resend_delay": "Renvoyer la recette après"
+        },
+        "data_description": {
+          "browser_id": "Navigateur à amener sur la vue des recettes (nécessite browser_mod). Vide : la recette s'affiche sur toutes les cartes ouvertes, sans navigation.",
+          "dashboard_path": "Par exemple /dashboard-cuisine/recettes. Utilisé seulement avec un ID de navigateur.",
+          "resend_delay": "0 pour désactiver. Utile pour une tablette dont la vue web se recharge quelques secondes après le réveil."
+        }
+      }
+    }
+  },
+  "services": {
+    "open_recipe_by_voice": {
+      "name": "Ouvrir une recette à la voix",
+      "description": "Cherche la recette Mealie correspondant à une phrase (d'abord dans les extras des recettes, puis dans leur nom) et l'affiche sur la carte Mealie Browser. Affiche une recherche sur la phrase si aucune recette ne correspond.",
+      "fields": {
+        "text": {
+          "name": "Texte",
+          "description": "Phrase à rechercher, par exemple ce qui a été dit à un assistant vocal."
+        },
+        "browser_id": {
+          "name": "ID du navigateur",
+          "description": "ID browser_mod du navigateur qui doit afficher la recette. Par défaut : options de l'intégration."
+        },
+        "dashboard_path": {
+          "name": "Chemin du tableau de bord",
+          "description": "Vue qui contient la carte, ouverte d'abord sur ce navigateur. Par défaut : options de l'intégration."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "Mealie Browser n'est pas configuré."
+    },
+    "mealie_entry_missing": {
+      "message": "L'entrée de l'intégration Mealie utilisée par Mealie Browser n'existe plus. Supprimez puis ajoutez de nouveau Mealie Browser."
+    }
+  },
+  "issues": {
+    "deprecated_yaml": {
+      "title": "La configuration YAML de Mealie Browser est obsolète",
+      "description": "Mealie Browser se configure maintenant depuis l'interface et votre configuration a été importée. Retirez `mealie_browser:` de configuration.yaml puis redémarrez Home Assistant."
+    }
+  }
+}
