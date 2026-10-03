@@ -1,12 +1,12 @@
 """Deliver "open this recipe" / "search this" orders to the cards.
 
-A card subscribes over the websocket with the browser_mod ID of its browser
-(or none). An order addressed to a browser goes only to cards running in that
-browser; an order with no browser goes to every card.
+A card subscribes over the websocket; every order goes to every subscribed
+card. Getting the right screen onto the recipes view (and keeping it awake)
+is left to the caller, e.g. a script using browser_mod.
 
-When no matching card is listening yet (the tablet is waking up, or is still
-navigating to the recipes view), the order is kept for a short while and
-handed to the first matching card that subscribes.
+When no card is listening yet (the tablet is waking up, or is still
+navigating to the recipes view), the last order is kept for a short while and
+handed to the first card that subscribes.
 """
 
 from __future__ import annotations
@@ -29,56 +29,35 @@ type Target = dict[str, Any]
 
 
 @dataclass
-class _Subscriber:
-    browser_id: str | None
-    send: Callable[[Target], None]
-
-
-@dataclass
 class TargetDispatcher:
-    """Routes targets to subscribed cards, keeps undelivered ones briefly."""
+    """Sends targets to subscribed cards, keeps an undelivered one briefly."""
 
-    _subscribers: list[_Subscriber] = field(default_factory=list)
-    # browser_id (None = any browser) -> (target, monotonic time pushed)
-    _pending: dict[str | None, tuple[Target, float]] = field(default_factory=dict)
-
-    @staticmethod
-    def _matches(target_browser: str | None, card_browser: str | None) -> bool:
-        return target_browser is None or target_browser == card_browser
+    _subscribers: list[Callable[[Target], None]] = field(default_factory=list)
+    # (target, monotonic time pushed), or None
+    _pending: tuple[Target, float] | None = None
 
     @callback
-    def push(self, browser_id: str | None, target: Target) -> None:
-        """Send ``target`` to matching cards, or keep it until one subscribes."""
-        delivered = False
-        for sub in list(self._subscribers):
-            if self._matches(browser_id, sub.browser_id):
-                sub.send(target)
-                delivered = True
-        if delivered:
-            self._pending.pop(browser_id, None)
-        else:
-            self._pending[browser_id] = (target, time.monotonic())
+    def push(self, target: Target) -> None:
+        """Send ``target`` to every card, or keep it until one subscribes."""
+        for send in list(self._subscribers):
+            send(target)
+        self._pending = None if self._subscribers else (target, time.monotonic())
 
     @callback
-    def subscribe(
-        self, browser_id: str | None, send: Callable[[Target], None]
-    ) -> Callable[[], None]:
-        """Register a card; flush a pending target for it first."""
-        now = time.monotonic()
-        for key, (target, pushed) in list(self._pending.items()):
-            if now - pushed > PENDING_TARGET_TTL:
-                del self._pending[key]
-            elif self._matches(key, browser_id):
-                del self._pending[key]
+    def subscribe(self, send: Callable[[Target], None]) -> Callable[[], None]:
+        """Register a card; flush the pending target to it first."""
+        if self._pending is not None:
+            target, pushed = self._pending
+            self._pending = None
+            if time.monotonic() - pushed <= PENDING_TARGET_TTL:
                 send(target)
 
-        sub = _Subscriber(browser_id, send)
-        self._subscribers.append(sub)
+        self._subscribers.append(send)
 
         @callback
         def unsubscribe() -> None:
-            if sub in self._subscribers:
-                self._subscribers.remove(sub)
+            if send in self._subscribers:
+                self._subscribers.remove(send)
 
         return unsubscribe
 
@@ -90,6 +69,7 @@ def async_register_websocket(hass: HomeAssistant, dispatcher: TargetDispatcher) 
     @websocket_api.websocket_command(
         {
             vol.Required("type"): WS_SUBSCRIBE,
+            # Sent by 1.0.0 cards still in a browser cache; ignored.
             vol.Optional("browser_id"): vol.Any(str, None),
         }
     )
@@ -106,8 +86,6 @@ def async_register_websocket(hass: HomeAssistant, dispatcher: TargetDispatcher) 
         def send(target: Target) -> None:
             connection.send_message(websocket_api.event_message(msg_id, target))
 
-        connection.subscriptions[msg_id] = dispatcher.subscribe(
-            msg.get("browser_id"), send
-        )
+        connection.subscriptions[msg_id] = dispatcher.subscribe(send)
 
     websocket_api.async_register_command(hass, ws_subscribe)

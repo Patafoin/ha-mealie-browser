@@ -7,15 +7,14 @@
 Browse your [Mealie](https://mealie.io) recipes from a Home Assistant dashboard, and open a recipe by voice on a kitchen tablet.
 
 - **A dashboard card** (`custom:mealie-browser-card`): searchable recipe grid with category filters, and a full-card recipe view (picture, times, servings, ingredients, steps). No popup, made for wall tablets.
-- **An action**, `mealie_browser.open_recipe_by_voice`: give it a spoken phrase ("dahl de lentilles"), it finds the matching recipe and shows it on the card — optionally steering a [browser_mod](https://github.com/thomasloven/hass-browser_mod) browser to the recipes view first.
+- **An action**, `mealie_browser.open_recipe_by_voice`: give it a spoken phrase ("dahl de lentilles"), it finds the matching recipe and shows it on the card. The integration only does that: waking a tablet up or bringing it to the recipes view stays in your own script (see the [example](#example-alexa-or-assist)).
 
 Everything goes through Home Assistant: the browser never talks to Mealie, so the card works remotely, Mealie needs no CORS setup, and the Mealie API token never leaves the server.
 
 ## Requirements
 
 - Home Assistant 2026.2 or newer.
-- The core [Mealie integration](https://www.home-assistant.io/integrations/mealie/), set up. Mealie Browser reuses its connection (URL and token): there is nothing else to configure.
-- Optional: [browser_mod](https://github.com/thomasloven/hass-browser_mod), to make a given browser navigate to the recipes view.
+- A [Mealie](https://mealie.io) server reachable from Home Assistant, and an API token (Mealie: user profile → *API Tokens*; a user that can read recipes is enough). The core Mealie integration is **not** needed.
 
 ## Installation
 
@@ -23,7 +22,9 @@ Everything goes through Home Assistant: the browser never talks to Mealie, so th
 
 1. HACS → ⋮ → *Custom repositories* → add `https://github.com/Patafoin/ha-mealie-browser`, category *Integration*.
 2. Download **Mealie Browser**, then restart Home Assistant.
-3. *Settings → Devices & services → Add integration → Mealie Browser*.
+3. *Settings → Devices & services → Add integration → Mealie Browser*, then enter the Mealie URL (e.g. `http://192.168.1.10:9925`) and the API token.
+
+If the token is later revoked, Home Assistant shows a reauthentication request to enter a new one.
 
 ### Manual
 
@@ -64,17 +65,13 @@ The card follows the Home Assistant theme. To restyle it, set these variables in
 action: mealie_browser.open_recipe_by_voice
 data:
   text: "{{ recipe_name }}"
-  browser_id: kitchen_tablet            # optional, browser_mod ID
-  dashboard_path: /dashboard-kitchen/recipes   # optional
 ```
 
 | Field | Description |
 |---|---|
 | `text` | The phrase to match. |
-| `browser_id` | browser_mod ID of the browser that should show the recipe. Without it, every open Mealie Browser card shows it. |
-| `dashboard_path` | View holding the card. With a `browser_id`, that browser navigates there first (requires browser_mod). |
 
-`browser_id` and `dashboard_path` default to the integration options (*Configure* on the integration).
+Every Mealie Browser card currently open shows the result. If no card is open yet (the tablet is still waking up or navigating), the last result is kept for 60 seconds and shown by the first card that opens.
 
 **How the recipe is chosen.** The phrase is compared, accents and punctuation ignored, with:
 
@@ -91,9 +88,9 @@ The action returns the result, usable with `response_variable`:
 {"slug": "dahl-de-lentilles", "name": "Dahl de lentilles"}   # or {"slug": null, "name": null}
 ```
 
-**Tablets that reload after waking up.** If the tablet is woken up right before the action (e.g. by an ADB key event), some web views reload a few seconds later and lose the recipe. Set *Send the recipe again after* in the integration options (e.g. 9 s) to send it twice.
-
 ### Example: Alexa or Assist
+
+Bringing the tablet to the recipes view is the script's job, here with [browser_mod](https://github.com/thomasloven/hass-browser_mod):
 
 ```yaml
 script:
@@ -103,12 +100,16 @@ script:
         selector:
           text:
     sequence:
+      - action: browser_mod.navigate
+        data:
+          browser_id: kitchen_tablet
+          path: /dashboard-kitchen/recipes
       - action: mealie_browser.open_recipe_by_voice
         data:
           text: "{{ recipe_name }}"
-          browser_id: kitchen_tablet
-          dashboard_path: /dashboard-kitchen/recipes
 ```
+
+**Tablets that reload after waking up.** If the script wakes the tablet up first (e.g. by an ADB key event), some web views reload a few seconds later and lose the recipe. Add a `delay` and call the action a second time.
 
 ## Changelog
 

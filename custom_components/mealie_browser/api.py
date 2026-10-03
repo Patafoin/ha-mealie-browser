@@ -1,8 +1,7 @@
 """Thin Mealie API client.
 
-The connection settings (URL, token, SSL check) are borrowed from the core
-``mealie`` integration's config entry, so this integration never stores a
-secret of its own and the token never reaches the browser.
+The connection settings (URL, API token, SSL check) come from the config
+entry. The token stays on the server: the browser only talks to the proxy.
 """
 
 from __future__ import annotations
@@ -14,8 +13,6 @@ from typing import Any
 
 import aiohttp
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_API_TOKEN, CONF_HOST, CONF_VERIFY_SSL
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -29,6 +26,10 @@ class MealieError(Exception):
     """Mealie could not be reached or answered with an error."""
 
 
+class MealieAuthError(MealieError):
+    """Mealie refused the API token."""
+
+
 @dataclass
 class _CachedRecipe:
     updated_at: str | None
@@ -40,23 +41,31 @@ class MealieApi:
     """Read-only access to the few Mealie endpoints the card needs."""
 
     hass: HomeAssistant
-    mealie_entry: ConfigEntry
+    host: str
+    token: str
+    verify_ssl: bool = True
     # slug -> extras cache, invalidated by the recipe's updatedAt timestamp
     _recipe_cache: dict[str, _CachedRecipe] = field(default_factory=dict)
 
     @property
     def _host(self) -> str:
-        return (self.mealie_entry.data.get(CONF_HOST) or "").rstrip("/")
+        return self.host.rstrip("/")
 
     @property
     def _session(self) -> aiohttp.ClientSession:
-        return async_get_clientsession(
-            self.hass, verify_ssl=self.mealie_entry.data.get(CONF_VERIFY_SSL, True)
-        )
+        return async_get_clientsession(self.hass, verify_ssl=self.verify_ssl)
 
     @property
     def _headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self.mealie_entry.data.get(CONF_API_TOKEN)}"}
+        return {"Authorization": f"Bearer {self.token}"}
+
+    async def async_validate(self) -> None:
+        """Check that Mealie answers and accepts the token."""
+        status, _ = await self.get_json("/api/users/self")
+        if status in (401, 403):
+            raise MealieAuthError(f"HTTP {status}")
+        if status != 200:
+            raise MealieError(f"/api/users/self: HTTP {status}")
 
     async def get_json(
         self, path: str, params: Mapping[str, str] | list[tuple[str, str]] | None = None
@@ -69,7 +78,12 @@ class MealieApi:
                 params=params,
                 timeout=_TIMEOUT,
             ) as resp:
-                return resp.status, await resp.json(content_type=None)
+                try:
+                    return resp.status, await resp.json(content_type=None)
+                except ValueError:
+                    if resp.status == 200:
+                        raise
+                    return resp.status, None  # error page that is not JSON
         except (aiohttp.ClientError, TimeoutError, ValueError) as err:
             raise MealieError(f"{path}: {err}") from err
 

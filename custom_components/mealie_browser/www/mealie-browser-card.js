@@ -4,7 +4,7 @@
 // no CORS headers and its token must stay server-side. Images are fetched
 // with the user's HA token and shown as blob URLs.
 
-const CARD_VERSION = '1.0.0';
+const CARD_VERSION = '2.0.0b1';
 
 const STRINGS = {
   en: {
@@ -133,16 +133,13 @@ class MealieBrowserCard extends HTMLElement {
     return typeof value === 'function' ? value(...args) : value;
   }
 
-  // Orders from the open_recipe_by_voice action. The integration only sends
-  // this card the orders addressed to its browser_mod browser (or to every
-  // browser), including one left pending while the card was not displayed.
+  // Orders from the open_recipe_by_voice action, including one left pending
+  // while no card was displayed.
   async _subscribe() {
     if (!this._hass || !this.isConnected || this._unsub) return;
-    const browserId = (window.browser_mod && window.browser_mod.browserID) || null;
     this._unsub = this._hass.connection
       .subscribeMessage((target) => this._onTarget(target), {
         type: 'mealie_browser/subscribe',
-        browser_id: browserId,
       })
       .catch((e) => {
         console.error('mealie-browser-card: subscribe', e);

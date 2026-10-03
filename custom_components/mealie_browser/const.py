@@ -8,16 +8,6 @@ from pathlib import Path
 DOMAIN = "mealie_browser"
 LOGGER = logging.getLogger(__package__)
 
-MEALIE_DOMAIN = "mealie"
-
-# Config entry data / options
-CONF_MEALIE_ENTRY_ID = "mealie_entry_id"
-CONF_BROWSER_ID = "browser_id"
-CONF_DASHBOARD_PATH = "dashboard_path"
-CONF_RESEND_DELAY = "resend_delay"
-
-DEFAULT_RESEND_DELAY = 0
-
 # Action
 SERVICE_OPEN_RECIPE_BY_VOICE = "open_recipe_by_voice"
 ATTR_TEXT = "text"

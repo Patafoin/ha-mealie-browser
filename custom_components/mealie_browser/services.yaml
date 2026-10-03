@@ -5,11 +5,3 @@ open_recipe_by_voice:
       example: dahl de lentilles
       selector:
         text:
-    browser_id:
-      example: kitchen_tablet
-      selector:
-        text:
-    dashboard_path:
-      example: /dashboard-kitchen/recipes
-      selector:
-        text:

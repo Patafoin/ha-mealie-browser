@@ -3,68 +3,45 @@
 - An authenticated proxy (``/api/mealie_browser/...``) lets the bundled card
   read recipes and images without ever exposing the Mealie token.
 - The ``open_recipe_by_voice`` action matches a spoken phrase to a recipe and
-  shows it on the card, optionally steering a browser_mod browser (e.g. a
-  kitchen tablet) to the recipes view first.
+  shows it on the cards. Waking a tablet up and bringing it to the recipes
+  view is up to the caller (e.g. a script using browser_mod).
 
-The Mealie connection itself is the one of the core ``mealie`` integration.
+The Mealie URL and API token are those entered in the config flow.
 """
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 from typing import Any
 
 import voluptuous as vol
 
 from homeassistant.components.http import StaticPathConfig
-from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry, ConfigEntryState
-from homeassistant.core import (
-    HomeAssistant,
-    ServiceCall,
-    ServiceResponse,
-    SupportsResponse,
-    callback,
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.const import CONF_API_TOKEN, CONF_HOST, CONF_VERIFY_SSL
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    ConfigEntryNotReady,
+    ServiceValidationError,
 )
-from homeassistant.exceptions import ConfigEntryError, ServiceValidationError
-from homeassistant.helpers import config_validation as cv, issue_registry as ir
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 from homeassistant.util.hass_dict import HassKey
 
-from .api import MealieApi, MealieError
-from .const import (
-    ATTR_TEXT,
-    CARD_PATH,
-    CARD_URL,
-    CONF_BROWSER_ID,
-    CONF_DASHBOARD_PATH,
-    CONF_MEALIE_ENTRY_ID,
-    CONF_RESEND_DELAY,
-    DEFAULT_RESEND_DELAY,
-    DOMAIN,
-    LOGGER,
-    MEALIE_DOMAIN,
-    SERVICE_OPEN_RECIPE_BY_VOICE,
-)
+from .api import MealieApi, MealieAuthError, MealieError
+from .const import ATTR_TEXT, CARD_PATH, CARD_URL, DOMAIN, LOGGER, SERVICE_OPEN_RECIPE_BY_VOICE
 from .lovelace import async_register_card_resource, async_remove_card_resource
 from .matching import find_recipe
 from .targets import TargetDispatcher, async_register_websocket
 from .views import VIEWS
 
-# `mealie_browser:` in configuration.yaml (no options) is still accepted and
-# imported into a config entry.
-CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 DISPATCHER: HassKey[TargetDispatcher] = HassKey(DOMAIN)
 
-OPEN_RECIPE_SCHEMA = vol.Schema(
-    {
-        vol.Required(ATTR_TEXT): cv.string,
-        vol.Optional(CONF_BROWSER_ID): cv.string,
-        vol.Optional(CONF_DASHBOARD_PATH): cv.string,
-    }
-)
+OPEN_RECIPE_SCHEMA = vol.Schema({vol.Required(ATTR_TEXT): cv.string})
 
 
 @dataclass
@@ -98,39 +75,34 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         schema=OPEN_RECIPE_SCHEMA,
         supports_response=SupportsResponse.OPTIONAL,
     )
-
-    if DOMAIN in config:
-        ir.async_create_issue(
-            hass,
-            DOMAIN,
-            "deprecated_yaml",
-            is_fixable=False,
-            severity=ir.IssueSeverity.WARNING,
-            translation_key="deprecated_yaml",
-        )
-        hass.async_create_task(
-            hass.config_entries.flow.async_init(
-                DOMAIN, context={"source": SOURCE_IMPORT}, data={}
-            )
-        )
-    else:
-        ir.async_delete_issue(hass, DOMAIN, "deprecated_yaml")
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: MealieBrowserConfigEntry) -> bool:
     """Set up Mealie Browser from a config entry."""
-    mealie_entry = hass.config_entries.async_get_entry(entry.data[CONF_MEALIE_ENTRY_ID])
-    if mealie_entry is None or mealie_entry.domain != MEALIE_DOMAIN:
-        raise ConfigEntryError(
-            translation_domain=DOMAIN, translation_key="mealie_entry_missing"
+    if not entry.data.get(CONF_HOST) or not entry.data.get(CONF_API_TOKEN):
+        # entry migrated from 1.x without a core mealie entry to copy from
+        raise ConfigEntryAuthFailed(
+            translation_domain=DOMAIN, translation_key="connection_missing"
         )
-    entry.runtime_data = MealieBrowserData(api=MealieApi(hass, mealie_entry))
+    api = MealieApi(
+        hass,
+        entry.data[CONF_HOST],
+        entry.data[CONF_API_TOKEN],
+        entry.data.get(CONF_VERIFY_SSL, True),
+    )
+    try:
+        await api.async_validate()
+    except MealieAuthError as err:
+        raise ConfigEntryAuthFailed(
+            translation_domain=DOMAIN, translation_key="invalid_auth"
+        ) from err
+    except MealieError as err:
+        raise ConfigEntryNotReady(str(err)) from err
+    entry.runtime_data = MealieBrowserData(api=api)
 
     integration = await async_get_integration(hass, DOMAIN)
     await async_register_card_resource(hass, f"{CARD_URL}?v={integration.version}")
-
-    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
 
 
@@ -144,8 +116,28 @@ async def async_remove_entry(hass: HomeAssistant, entry: MealieBrowserConfigEntr
     await async_remove_card_resource(hass)
 
 
-async def _async_options_updated(hass: HomeAssistant, entry: MealieBrowserConfigEntry) -> None:
-    await hass.config_entries.async_reload(entry.entry_id)
+async def async_migrate_entry(hass: HomeAssistant, entry: MealieBrowserConfigEntry) -> bool:
+    """2.0: own Mealie connection instead of the core mealie entry's; no options.
+
+    The URL and token are copied from the core mealie entry 1.x pointed to. If
+    it is gone, the entry is left without a connection and setup asks for one
+    (reauthentication).
+    """
+    if entry.version > 2:
+        return False
+    if entry.version == 1:
+        data: dict[str, Any] = {}
+        old = hass.config_entries.async_get_entry(entry.data.get("mealie_entry_id", ""))
+        if old is not None and old.domain == "mealie":
+            data = {
+                CONF_HOST: (old.data.get(CONF_HOST) or "").rstrip("/"),
+                CONF_API_TOKEN: old.data.get(CONF_API_TOKEN),
+                CONF_VERIFY_SSL: old.data.get(CONF_VERIFY_SSL, True),
+            }
+        hass.config_entries.async_update_entry(
+            entry, data=data, options={}, version=2, minor_version=1
+        )
+    return True
 
 
 def _loaded_entry(hass: HomeAssistant) -> MealieBrowserConfigEntry:
@@ -158,10 +150,6 @@ def _loaded_entry(hass: HomeAssistant) -> MealieBrowserConfigEntry:
 async def _async_open_recipe_by_voice(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
     entry = _loaded_entry(hass)
     text: str = call.data[ATTR_TEXT]
-    browser_id = call.data.get(CONF_BROWSER_ID) or entry.options.get(CONF_BROWSER_ID) or None
-    dashboard_path = (
-        call.data.get(CONF_DASHBOARD_PATH) or entry.options.get(CONF_DASHBOARD_PATH) or None
-    )
 
     try:
         recipes = await entry.runtime_data.api.async_recipe_candidates()
@@ -178,43 +166,9 @@ async def _async_open_recipe_by_voice(hass: HomeAssistant, call: ServiceCall) ->
         LOGGER.info("Voice match: %r -> no recipe, showing a search", text)
         target = {"action": "search", "text": text}
 
-    _push(hass, browser_id, dashboard_path, target)
-
-    # A tablet woken up just before this call may reload its web view a few
-    # seconds later (seen with the Android companion app), losing the page we
-    # just showed. Sending the same target again once it has settled fixes it.
-    delay = entry.options.get(CONF_RESEND_DELAY, DEFAULT_RESEND_DELAY)
-    if delay:
-
-        async def resend() -> None:
-            await asyncio.sleep(delay)
-            LOGGER.debug("Re-sending %s after %ss", target, delay)
-            _push(hass, browser_id, dashboard_path, target)
-
-        entry.async_create_background_task(hass, resend(), f"{DOMAIN} resend")
+    hass.data[DISPATCHER].push(target)
 
     if recipe:
         return {"slug": recipe.slug, "name": recipe.name}
     return {"slug": None, "name": None}
 
-
-@callback
-def _push(
-    hass: HomeAssistant,
-    browser_id: str | None,
-    dashboard_path: str | None,
-    target: dict[str, Any],
-) -> None:
-    """Navigate the browser to the recipes view if asked, then hand the target to the card."""
-    if browser_id and dashboard_path:
-        if hass.services.has_service("browser_mod", "navigate"):
-            hass.async_create_task(
-                hass.services.async_call(
-                    "browser_mod",
-                    "navigate",
-                    {"browser_id": browser_id, "path": dashboard_path},
-                )
-            )
-        else:
-            LOGGER.warning("browser_mod is not available, cannot open %s", dashboard_path)
-    hass.data[DISPATCHER].push(browser_id, target)
