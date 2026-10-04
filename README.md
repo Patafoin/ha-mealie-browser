@@ -11,6 +11,10 @@ Browse your [Mealie](https://mealie.io) recipes from a Home Assistant dashboard,
 
 Everything goes through Home Assistant: the browser never talks to Mealie, so the card works remotely, Mealie needs no CORS setup, and the Mealie API token never leaves the server.
 
+![Recipe list with category filters](https://raw.githubusercontent.com/Patafoin/ha-mealie-browser/main/images/card-list.png)
+
+![Recipe view](https://raw.githubusercontent.com/Patafoin/ha-mealie-browser/main/images/card-recipe.png)
+
 ## Requirements
 
 - Home Assistant 2026.2 or newer.
