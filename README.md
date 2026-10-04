@@ -18,10 +18,13 @@ Everything goes through Home Assistant: the browser never talks to Mealie, so th
 
 ## Installation
 
-### HACS
+### HACS (recommended)
 
-1. HACS → ⋮ → *Custom repositories* → add `https://github.com/Patafoin/ha-mealie-browser`, category *Integration*.
-2. Download **Mealie Browser**, then restart Home Assistant.
+[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Patafoin&repository=ha-mealie-browser&category=integration)
+
+1. In HACS, search for **Mealie Browser** (or use the button above) and download it.
+   If it is not listed yet, add it first: HACS → ⋮ → *Custom repositories* → `https://github.com/Patafoin/ha-mealie-browser`, category *Integration*.
+2. Restart Home Assistant.
 3. *Settings → Devices & services → Add integration → Mealie Browser*, then enter the Mealie URL (e.g. `http://192.168.1.10:9925`) and the API token.
 
 If the token is later revoked, Home Assistant shows a reauthentication request to enter a new one.
@@ -110,6 +113,20 @@ script:
 ```
 
 **Tablets that reload after waking up.** If the script wakes the tablet up first (e.g. by an ADB key event), some web views reload a few seconds later and lose the recipe. Add a `delay` and call the action a second time.
+
+## Upgrading from 1.x
+
+2.0 is a breaking release:
+
+- Mealie Browser no longer uses the core Mealie integration. On the first start after the upgrade, it takes the URL and token from the core Mealie entry if it still exists; otherwise Home Assistant shows a reauthentication request: enter the Mealie URL and an API token there.
+- `open_recipe_by_voice` only accepts `text`. Remove `browser_id` and `dashboard_path` from your scripts (the call fails otherwise), and navigate with `browser_mod.navigate` in the script if you need it (see the example above).
+- The integration options are gone (default browser, path, second send); they are removed automatically.
+
+## Troubleshooting
+
+- **The card says "Mealie Browser is not set up"**: the integration is not loaded. Check *Settings → Devices & services → Mealie Browser* (a reauthentication may be pending) and the Home Assistant logs.
+- **The voice command does nothing**: call `mealie_browser.open_recipe_by_voice` from *Developer tools → Actions* with *Return response* on, to see which recipe matches. If a recipe is found but the tablet shows nothing, check that the tablet reaches the view holding the card within 60 seconds.
+- **Logs**: add `custom_components.mealie_browser: debug` under `logger: logs:` in `configuration.yaml`.
 
 ## Changelog
 

@@ -4,7 +4,7 @@
 // no CORS headers and its token must stay server-side. Images are fetched
 // with the user's HA token and shown as blob URLs.
 
-const CARD_VERSION = '2.0.0b1';
+const CARD_VERSION = '2.0.0';
 
 const STRINGS = {
   en: {

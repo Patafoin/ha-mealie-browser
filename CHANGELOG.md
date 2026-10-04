@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.0.0] - 2026-10-04
+
+First stable release of the 2.x line: same code as 2.0.0b1, validated in daily use (card and voice command on a kitchen tablet). Read the 2.0.0b1 notes below before upgrading from 1.x: the action lost its `browser_id` / `dashboard_path` fields and the integration now asks for the Mealie URL and an API token.
+
 ## [2.0.0b1] - 2026-10-03
 
 Mealie Browser is now independent: it no longer needs the core Mealie integration, and no longer drives browsers. It finds the recipe and shows it on the open cards, nothing else. Waking a tablet up and bringing it to the recipes view belongs to your own script (see the README example).
