@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.0.1] - 2026-10-20
+
+### Fixed
+
+- The 1.x → 2.x migration no longer reads the URL and API token from the core Mealie integration's config entry. 1.x entries now migrate with no connection, same as when the core Mealie entry is already gone: Home Assistant asks for the Mealie URL and an API token (reauthentication).
+
 ## [2.0.0] - 2026-10-04
 
 First stable release of the 2.x line: same code as 2.0.0b1, validated in daily use (card and voice command on a kitchen tablet). Read the 2.0.0b1 notes below before upgrading from 1.x: the action lost its `browser_id` / `dashboard_path` fields and the integration now asks for the Mealie URL and an API token.

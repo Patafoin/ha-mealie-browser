@@ -122,7 +122,7 @@ script:
 
 2.0 is a breaking release:
 
-- Mealie Browser no longer uses the core Mealie integration. On the first start after the upgrade, it takes the URL and token from the core Mealie entry if it still exists; otherwise Home Assistant shows a reauthentication request: enter the Mealie URL and an API token there.
+- Mealie Browser no longer uses the core Mealie integration. On the first start after the upgrade, Home Assistant shows a reauthentication request: enter the Mealie URL and an API token there.
 - `open_recipe_by_voice` only accepts `text`. Remove `browser_id` and `dashboard_path` from your scripts (the call fails otherwise), and navigate with `browser_mod.navigate` in the script if you need it (see the example above).
 - The integration options are gone (default browser, path, second send); they are removed automatically.
 

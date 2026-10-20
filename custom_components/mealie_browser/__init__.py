@@ -119,23 +119,16 @@ async def async_remove_entry(hass: HomeAssistant, entry: MealieBrowserConfigEntr
 async def async_migrate_entry(hass: HomeAssistant, entry: MealieBrowserConfigEntry) -> bool:
     """2.0: own Mealie connection instead of the core mealie entry's; no options.
 
-    The URL and token are copied from the core mealie entry 1.x pointed to. If
-    it is gone, the entry is left without a connection and setup asks for one
-    (reauthentication).
+    1.x entries carried no connection of their own (they piggybacked on the
+    core mealie entry), so they are migrated with empty data. Setup then
+    raises ConfigEntryAuthFailed and the reauth flow asks for the URL and
+    token.
     """
     if entry.version > 2:
         return False
     if entry.version == 1:
-        data: dict[str, Any] = {}
-        old = hass.config_entries.async_get_entry(entry.data.get("mealie_entry_id", ""))
-        if old is not None and old.domain == "mealie":
-            data = {
-                CONF_HOST: (old.data.get(CONF_HOST) or "").rstrip("/"),
-                CONF_API_TOKEN: old.data.get(CONF_API_TOKEN),
-                CONF_VERIFY_SSL: old.data.get(CONF_VERIFY_SSL, True),
-            }
         hass.config_entries.async_update_entry(
-            entry, data=data, options={}, version=2, minor_version=1
+            entry, data={}, options={}, version=2, minor_version=1
         )
     return True
 
