@@ -1,6 +1,6 @@
 # Mealie Browser for Home Assistant
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
+[![Marketplace (HACS)](https://img.shields.io/badge/Marketplace%20%28HACS%29-default-41BDF5.svg)](https://hacs.xyz/)
 [![GitHub release](https://img.shields.io/github/v/release/Patafoin/ha-mealie-browser)](https://github.com/Patafoin/ha-mealie-browser/releases)
 [![Validate](https://github.com/Patafoin/ha-mealie-browser/actions/workflows/validate.yml/badge.svg)](https://github.com/Patafoin/ha-mealie-browser/actions/workflows/validate.yml)
 
@@ -22,14 +22,14 @@ Everything goes through Home Assistant: the browser never talks to Mealie, so th
 
 ## Installation
 
-### HACS (recommended)
+### Marketplace (HACS) — recommended
 
-[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Patafoin&repository=ha-mealie-browser&category=integration)
+[![Open your Home Assistant instance and open this repository inside the Marketplace (HACS).](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Patafoin&repository=ha-mealie-browser&category=integration)
 
-1. In HACS, search for **Mealie Browser** (or use the button above) and download it.
-   If it is not listed yet, add it first: HACS → ⋮ → *Custom repositories* → `https://github.com/Patafoin/ha-mealie-browser`, category *Integration*.
-2. Restart Home Assistant.
-3. *Settings → Devices & services → Add integration → Mealie Browser*, then enter the Mealie URL (e.g. `http://192.168.1.10:9925`) and the API token.
+1. Settings → **Marketplace**, search for **Mealie Browser** (or use the button above) and select **Install**. Before Home Assistant 2026.11, do the same search in **HACS**, download it, then restart Home Assistant.
+2. *Settings → Devices & services → Add integration → Mealie Browser*, then enter the Mealie URL (e.g. `http://192.168.1.10:9925`) and the API token.
+
+If the search does not find it, add the repository by its link: in the Marketplace, **Add from link** → `https://github.com/Patafoin/ha-mealie-browser`; in HACS, ⋮ → **Custom repositories** → the same URL, type **Integration**.
 
 If the token is later revoked, Home Assistant shows a reauthentication request to enter a new one.
 
